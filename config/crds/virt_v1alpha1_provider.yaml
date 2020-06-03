@@ -4,12 +4,12 @@ metadata:
   creationTimestamp: null
   labels:
     controller-tools.k8s.io: "1.0"
-  name: migrations.virt.migration.openshift.io
+  name: providers.virt.migration.openshift.io
 spec:
   group: virt.migration.openshift.io
   names:
-    kind: Migration
-    plural: migrations
+    kind: Provider
+    plural: providers
   scope: Namespaced
   subresources:
     status: {}
@@ -30,9 +30,19 @@ spec:
           type: object
         spec:
           properties:
-            plan:
-              description: Reference to the associated Plan.
+            secret:
+              description: References a secret containing credentials and other confidential
+                information.
               type: object
+            type:
+              description: Provider type.
+              type: string
+            url:
+              description: The (external) provider URL.
+              type: string
+          required:
+          - type
+          - url
           type: object
         status:
           properties:

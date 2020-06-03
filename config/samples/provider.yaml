@@ -1,0 +1,8 @@
+---
+kind: Provider
+apiVersion: virt.migration.openshift.io/v1alpha1
+metadata:
+  name: test
+  namespace: openshift-migration
+spec:
+  url: "your-url-here"
