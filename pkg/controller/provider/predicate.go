@@ -43,3 +43,49 @@ func (r ProviderPredicate) Delete(e event.DeleteEvent) bool {
 
 	return false
 }
+
+// TODO: BEGIN
+type RelayPredicate struct {
+	predicate.Funcs
+}
+
+func (r RelayPredicate) Create(e event.CreateEvent) bool {
+	log.Info("RelayPredicate.Create()", "kind", libref.ToKind(e.Object))
+	return true
+}
+
+func (r RelayPredicate) Update(e event.UpdateEvent) bool {
+	log.Info("RelayPredicate.Update()", "kind", libref.ToKind(e.ObjectNew))
+	return true
+}
+
+func (r RelayPredicate) Delete(e event.DeleteEvent) bool {
+	return true
+}
+
+func (r RelayPredicate) Generic(e event.GenericEvent) bool {
+	return true
+}
+
+type ChannelPredicate struct {
+	predicate.Funcs
+}
+
+func (r ChannelPredicate) Create(e event.CreateEvent) bool {
+	return true
+}
+
+func (r ChannelPredicate) Update(e event.UpdateEvent) bool {
+	return true
+}
+
+func (r ChannelPredicate) Delete(e event.DeleteEvent) bool {
+	return true
+}
+
+func (r ChannelPredicate) Generic(e event.GenericEvent) bool {
+	log.Info("ChannelPredicate.Generic()", "kind", libref.ToKind(e.Object))
+	return true
+}
+
+// TODO: END

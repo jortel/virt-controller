@@ -162,12 +162,14 @@ func (r *Reconciler) getUpdates(ctx context.Context) error {
 	pc := property.DefaultCollector(r.client.Client)
 	pc, err := pc.Create(ctx)
 	if err != nil {
+		Log.Trace(err)
 		return err
 	}
 	defer pc.Destroy(context.Background())
 	filter := r.filter(pc)
 	err = pc.CreateFilter(ctx, filter.CreateFilter)
 	if err != nil {
+		Log.Trace(err)
 		return err
 	}
 	req := types.WaitForUpdatesEx{
@@ -181,6 +183,7 @@ func (r *Reconciler) getUpdates(ctx context.Context) error {
 				pc.CancelWaitForUpdates(context.Background())
 				break
 			}
+			Log.Trace(err)
 			return err
 		}
 		updateSet := res.Returnval

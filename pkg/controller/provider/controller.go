@@ -22,6 +22,7 @@ import (
 	libmodel "github.com/konveyor/controller/pkg/inventory/model"
 	libweb "github.com/konveyor/controller/pkg/inventory/web"
 	"github.com/konveyor/controller/pkg/logging"
+	librmt "github.com/konveyor/controller/pkg/remote"
 	api "github.com/konveyor/virt-controller/pkg/apis/virt/v1alpha1"
 	rlnr "github.com/konveyor/virt-controller/pkg/controller/provider/container"
 	"github.com/konveyor/virt-controller/pkg/controller/provider/model"
@@ -37,8 +38,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
@@ -91,6 +94,7 @@ func Add(mgr manager.Manager) error {
 		log.Trace(err)
 		return err
 	}
+	reconciler.controller = cnt
 	err = cnt.Watch(
 		&source.Kind{Type: &api.Provider{}},
 		&handler.EnqueueRequestForObject{},
@@ -99,6 +103,19 @@ func Add(mgr manager.Manager) error {
 		log.Trace(err)
 		return err
 	}
+
+	// TODO: -BEGIN
+	relay := make(chan event.GenericEvent)
+	err = cnt.Watch(
+		&source.Channel{Source: relay},
+		&handler.EnqueueRequestForObject{},
+		&ChannelPredicate{})
+	reconciler.relay = relay
+	if err != nil {
+		log.Trace(err)
+		return err
+	}
+	// TODO: -END
 
 	return nil
 }
@@ -109,6 +126,11 @@ var _ reconcile.Reconciler = &Reconciler{}
 // Reconciles an provider object.
 type Reconciler struct {
 	client.Client
+	controller controller.Controller
+	// TODO -BEGIN
+	relay    chan event.GenericEvent
+	hasRelay bool
+	// TODO: -END
 	scheme    *runtime.Scheme
 	container *libcontainer.Container
 	web       *libweb.WebServer
@@ -122,6 +144,8 @@ func (r *Reconciler) Reconcile(request reconcile.Request) (reconcile.Result, err
 	// Reset the logger.
 	log.Reset()
 
+	log.Info("** RECONCILE **", "r", request)
+
 	// Fetch the CR.
 	provider := &api.Provider{}
 	err = r.Get(context.TODO(), request.NamespacedName, provider)
@@ -133,9 +157,11 @@ func (r *Reconciler) Reconcile(request reconcile.Request) (reconcile.Result, err
 					Name:      request.Name,
 				},
 			}
+			librmt.RemoteContainer.Delete(provider)
 			if r, found := r.container.Get(deleted); found {
 				r.Shutdown(true)
 			}
+
 			return reconcile.Result{}, nil
 		}
 		log.Trace(err)
@@ -153,6 +179,10 @@ func (r *Reconciler) Reconcile(request reconcile.Request) (reconcile.Result, err
 	if !provider.Status.HasBlockerCondition() {
 		provider.Status.SetReady(true, ReadyMessage)
 	}
+
+	// TODO -BEGIN
+	r.TestRelay(provider)
+	// TODO -END
 
 	// Update the container.
 	err = r.updateContainer(provider)
@@ -219,4 +249,57 @@ func (r *Reconciler) getSecret(provider *api.Provider) (*core.Secret, error) {
 	}
 
 	return secret, nil
+}
+
+func (r *Reconciler) TestRelay(provider *api.Provider) error {
+	if r.hasRelay {
+		return nil
+	}
+	restCfg, err := config.GetConfig()
+	if err != nil {
+		log.Trace(err)
+	}
+	remote := &librmt.Remote{
+		RestCfg: restCfg,
+	}
+	remote, err = librmt.RemoteContainer.Ensure(provider, remote)
+	if err != nil {
+		log.Trace(err)
+	}
+	if provider.Spec.Type == api.VMWare {
+		watch := []librmt.Watch{
+			{ // plan
+				Subject: &api.Plan{},
+				Predicates: []predicate.Predicate{
+					&RelayPredicate{},
+				},
+			},
+			{ // pod
+				Subject: &core.Pod{},
+				Predicates: []predicate.Predicate{
+					&RelayPredicate{},
+				},
+			},
+		}
+		relay := &librmt.Relay{
+			Channel: r.relay,
+			Target:  provider,
+			Watch:   watch,
+		}
+		err = librmt.RemoteContainer.EnsureRelay(provider, relay)
+		if err != nil {
+			log.Trace(err)
+		}
+	} else {
+		librmt.RemoteContainer.EndRelay(
+			provider,
+			&librmt.Relay{
+				Channel: r.relay,
+			})
+	}
+
+
+	//r.hasRelay = true
+
+	return nil
 }

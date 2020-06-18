@@ -12,6 +12,7 @@ import (
 
 const (
 	Stack = "stacktrace"
+	Error = "error"
 	None  = ""
 )
 
@@ -80,14 +81,19 @@ func (l Logger) Error(err error, message string, kvpair ...interface{}) {
 	}
 	mutex.Lock()
 	defer mutex.Unlock()
-	le, wrapped := err.(*liberr.LibError)
+	le, wrapped := err.(*liberr.Error)
 	if wrapped {
 		err = le.Unwrap()
 		_, found := l.history[err]
 		if found || errors.IsConflict(err) {
 			return
 		}
-		kvpair = append(kvpair, Stack, le.Stack())
+		kvpair = append(
+			kvpair,
+			Error,
+			le.Error(),
+			Stack,
+			le.Stack())
 		l.Real.Info(message, kvpair...)
 		l.history[err] = true
 	} else {

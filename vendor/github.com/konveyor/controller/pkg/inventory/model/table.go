@@ -313,7 +313,7 @@ func (t Table) Update(model interface{}) error {
 		if t.Get(model) == nil {
 			return liberr.Wrap(Conflict)
 		} else {
-			return liberr.Wrap(sql.ErrNoRows)
+			return liberr.Wrap(NotFound)
 		}
 	}
 	if m, cast := model.(Model); cast {
