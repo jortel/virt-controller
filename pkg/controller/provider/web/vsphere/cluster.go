@@ -131,6 +131,7 @@ type Cluster struct {
 	Resource
 	Networks    model.RefList `json:"networks"`
 	Datastores  model.RefList `json:"datastores"`
+	Hosts       model.RefList `json:"hosts"`
 	DasEnabled  bool          `json:"dasEnabled"`
 	DasVms      model.RefList `json:"DasVms"`
 	DrsEnabled  bool          `json:"drsEnabled"`
@@ -147,8 +148,10 @@ func (r *Cluster) With(m *model.Cluster) {
 	r.DrsBehavior = m.DrsBehavior
 	r.Networks = *model.RefListPtr().With(m.Networks)
 	r.Datastores = *model.RefListPtr().With(m.Datastores)
+	r.Hosts = *model.RefListPtr().With(m.Hosts)
 	r.DasVms = *model.RefListPtr().With(m.DasVms)
 	r.DrsVms = *model.RefListPtr().With(m.DasVms)
+
 }
 
 //

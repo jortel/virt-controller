@@ -174,6 +174,8 @@ type VM struct {
 type Disk struct {
 	// Backing file.
 	File string `json:"file"`
+	// Disk is encrypted.
+	Encrypted bool `json:"encrypted"`
 	// Datastore.
 	Datastore Ref `json:"datastore"`
 }

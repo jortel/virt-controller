@@ -83,6 +83,7 @@ type RefList struct {
 //
 // Set the list content.
 func (v *RefList) With(ref types.AnyType) {
+	v.list = []model.Ref{}
 	if a, cast := ref.(types.ArrayOfManagedObjectReference); cast {
 		list := a.ManagedObjectReference
 		for _, r := range list {
