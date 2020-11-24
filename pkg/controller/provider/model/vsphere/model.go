@@ -86,51 +86,79 @@ func (m *Base) Updated() {
 
 // Determine object path.
 func (m *Base) Path(db libmodel.DB) (path string, err error) {
-	parts := []string{}
+	parts := []string{m.Name}
 	node := m
-	Walk:
-		for {
-			parent := Ref{}
-			parent.With(node.Parent)
-			switch parent.Kind {
-			case FolderKind:
-				f := &Folder{Base: Base{ID: parent.ID}}
-				err = db.Get(f)
-				if err != nil {
-					return
-				}
-				parts = append(parts, f.Name)
-				node = &f.Base
-			case DatacenterKind:
-				f := &Datacenter{Base: Base{ID: parent.ID}}
-				err = db.Get(f)
-				if err != nil {
-					return
-				}
-				parts = append(parts, f.Name)
-				node = &f.Base
-			case ClusterKind:
-				f := &Cluster{Base: Base{ID: parent.ID}}
-				err = db.Get(f)
-				if err != nil {
-					return
-				}
-				parts = append(parts, f.Name)
-				node = &f.Base
-			case HostKind:
-				f := &Host{Base: Base{ID: parent.ID}}
-				err = db.Get(f)
-				if err != nil {
-					return
-				}
-				parts = append(parts, f.Name)
-				node = &f.Base
-			default:
-				break Walk
+Walk:
+	for {
+		parent := Ref{}
+		parent.With(node.Parent)
+		switch parent.Kind {
+		case FolderKind:
+			f := &Folder{}
+			f.WithRef(parent)
+			err = db.Get(f)
+			if err != nil {
+				return
 			}
+			parts = append(parts, f.Name)
+			node = &f.Base
+		case DatacenterKind:
+			m := &Datacenter{}
+			m.WithRef(parent)
+			err = db.Get(m)
+			if err != nil {
+				return
+			}
+			parts = append(parts, m.Name)
+			node = &m.Base
+		case ClusterKind:
+			m := &Cluster{}
+			m.WithRef(parent)
+			err = db.Get(m)
+			if err != nil {
+				return
+			}
+			parts = append(parts, m.Name)
+			node = &m.Base
+		case HostKind:
+			m := &Host{}
+			m.WithRef(parent)
+			err = db.Get(m)
+			if err != nil {
+				return
+			}
+			parts = append(parts, m.Name)
+			node = &m.Base
+		case NetKind:
+			m := &Network{}
+			m.WithRef(parent)
+			err = db.Get(m)
+			if err != nil {
+				return
+			}
+			parts = append(parts, m.Name)
+			node = &m.Base
+		case DsKind:
+			m := &Datastore{}
+			m.WithRef(parent)
+			err = db.Get(m)
+			if err != nil {
+				return
+			}
+			parts = append(parts, m.Name)
+			node = &m.Base
+		default:
+			break Walk
 		}
+	}
 
-	path = strings.Join(parts, "/")
+	reversed := []string{""}
+	for i := len(parts) - 1; i >= 0; i-- {
+		reversed = append(reversed, parts[i])
+	}
+
+	path = strings.Join(reversed, "/")
+
 	return
 }
 

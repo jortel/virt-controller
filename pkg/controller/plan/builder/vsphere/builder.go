@@ -10,6 +10,8 @@ import (
 	"github.com/konveyor/virt-controller/pkg/controller/provider/web"
 	"github.com/konveyor/virt-controller/pkg/controller/provider/web/vsphere"
 	vmio "github.com/kubevirt/vm-import-operator/pkg/apis/v2v/v1beta1"
+	"github.com/vmware/govmomi"
+	"github.com/vmware/govmomi/find"
 	"github.com/vmware/govmomi/vim25"
 	"gopkg.in/yaml.v2"
 	core "k8s.io/api/core/v1"
@@ -145,16 +147,30 @@ func (r *Builder) host(hostID string) (host *vsphere.Host, err error) {
 
 //
 // Build the VMIO ResourceMapping CR.
-func (r *Builder) Mapping(mp *plan.Map, object *vmio.VirtualMachineImportSpec) (err error) {
+func (r *Builder) mapping(vmID string, mp *plan.Map, object *vmio.VirtualMachineImportSpec) (err error) {
+	translator, err := r.hostTranslator(vmID)
+	if err != nil {
+		err = liberr.Wrap(err)
+		return
+	}
 	netMap := []vmio.NetworkResourceMappingItem{}
 	dsMap := []vmio.StorageResourceMappingItem{}
 	for i := range mp.Networks {
 		network := &mp.Networks[i]
+		id := &network.Source.ID
+		if translator != nil {
+			netID, tErr := translator.networkID(*id)
+			if tErr != nil {
+				err = liberr.Wrap(tErr)
+				return
+			}
+			id = &netID
+		}
 		netMap = append(
 			netMap,
 			vmio.NetworkResourceMappingItem{
 				Source: vmio.Source{
-					ID: &network.Source.ID,
+					ID: id,
 				},
 				Target: vmio.ObjectIdentifier{
 					Namespace: &network.Destination.Namespace,
@@ -165,6 +181,15 @@ func (r *Builder) Mapping(mp *plan.Map, object *vmio.VirtualMachineImportSpec) (
 	}
 	for i := range mp.Datastores {
 		ds := &mp.Datastores[i]
+		id := &ds.Source.ID
+		if translator != nil {
+			dsID, tErr := translator.networkID(*id)
+			if tErr != nil {
+				err = liberr.Wrap(tErr)
+				return
+			}
+			id = &dsID
+		}
 		dsMap = append(
 			dsMap,
 			vmio.StorageResourceMappingItem{
@@ -179,6 +204,35 @@ func (r *Builder) Mapping(mp *plan.Map, object *vmio.VirtualMachineImportSpec) (
 	object.Source.Vmware.Mappings = &vmio.VmwareMappings{
 		NetworkMappings: &netMap,
 		StorageMappings: &dsMap,
+	}
+
+	return
+}
+
+//
+// Build a host translator.
+func (r *Builder) hostTranslator(vmID string) (tr *HostTranslator, err error) {
+	hostID, err := r.hostID(vmID)
+	if err != nil {
+		err = liberr.Wrap(err)
+		return
+	}
+	if host, found := r.HostMap[hostID]; found {
+		hostURL := liburl.URL{
+			Scheme: "https",
+			Host:   host.Spec.IpAddress,
+			Path:   vim25.Path,
+		}
+		secret, nErr := r.hostSecret(host)
+		if nErr != nil {
+			err = liberr.Wrap(nErr)
+			return
+		}
+		tr = &HostTranslator{
+			url:       hostURL.String(),
+			inventory: r.Inventory,
+			secret:    secret,
+		}
 	}
 
 	return
@@ -202,7 +256,11 @@ func (r *Builder) Import(vmID string, mp *plan.Map, object *vmio.VirtualMachineI
 				ID: &uuid,
 			},
 		}
-		r.Mapping(mp, object)
+		err = r.mapping(vmID, mp, object)
+		if err != nil {
+			err = liberr.Wrap(err)
+			return
+		}
 	default:
 		err = liberr.New(
 			fmt.Sprintf(
@@ -248,4 +306,130 @@ func (r *Builder) Tasks(vmID string) (list []*plan.Task, err error) {
 	}
 
 	return
+}
+
+//
+// Host translator.
+type HostTranslator struct {
+	// Host url.
+	url string
+	// Host secret.
+	secret *core.Secret
+	// Inventory client.
+	inventory web.Client
+	// Host client.
+	client *vim25.Client
+	// Finder
+	finder *find.Finder
+}
+
+//
+// Translate network ID.
+func (r *HostTranslator) networkID(in string) (out string, err error) {
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	err = r.connect(ctx)
+	if err != nil {
+		err = liberr.Wrap(err)
+		return
+	}
+	network := &vsphere.Network{}
+	status, pErr := r.inventory.Get(network, in)
+	if pErr != nil {
+		err = liberr.Wrap(pErr)
+		return
+	}
+	if status != http.StatusOK {
+		err = liberr.New(http.StatusText(status))
+		return
+	}
+	object, fErr := r.finder.Network(ctx, network.Path)
+	if fErr != nil {
+		err = liberr.Wrap(fErr)
+		return
+	}
+	out = object.Reference().Value
+
+	return
+}
+
+//
+// Translate datastore ID.
+func (r *HostTranslator) DatastoreID(in string) (out string, err error) {
+	ctx := context.Background()
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	err = r.connect(ctx)
+	if err != nil {
+		err = liberr.Wrap(err)
+		return
+	}
+	network := &vsphere.Datastore{}
+	status, pErr := r.inventory.Get(network, in)
+	if pErr != nil {
+		err = liberr.Wrap(pErr)
+		return
+	}
+	if status != http.StatusOK {
+		err = liberr.New(http.StatusText(status))
+		return
+	}
+	object, fErr := r.finder.Datastore(ctx, network.Path)
+	if fErr != nil {
+		err = liberr.Wrap(fErr)
+		return
+	}
+	out = object.Reference().Value
+
+	return
+}
+
+//
+// Build the client and finder.
+func (r *HostTranslator) connect(ctx context.Context) (err error) {
+	insecure := true
+	if r.client != nil {
+		return
+	}
+	url, err := liburl.Parse(r.url)
+	if err != nil {
+		return liberr.Wrap(err)
+	}
+	url.User = liburl.UserPassword(
+		r.user(),
+		r.password())
+
+	client, err := govmomi.NewClient(ctx, url, insecure)
+	if err != nil {
+		return liberr.Wrap(err)
+	}
+	r.client, err = vim25.NewClient(ctx, client)
+	if err != nil {
+		err = liberr.Wrap(err)
+	}
+
+	r.finder = find.NewFinder(r.client)
+
+	return nil
+}
+
+//
+// User.
+func (r *HostTranslator) user() string {
+	if user, found := r.secret.Data["user"]; found {
+		return string(user)
+	}
+
+	return ""
+}
+
+//
+// Password.
+func (r *HostTranslator) password() string {
+	if password, found := r.secret.Data["password"]; found {
+		return string(password)
+	}
+
+	return ""
 }
