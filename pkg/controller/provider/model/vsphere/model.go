@@ -5,6 +5,7 @@ import (
 	liberr "github.com/konveyor/controller/pkg/error"
 	libmodel "github.com/konveyor/controller/pkg/inventory/model"
 	"github.com/konveyor/virt-controller/pkg/controller/provider/model/base"
+	"strings"
 )
 
 //
@@ -81,6 +82,56 @@ func (m *Base) Created() {
 // the reconciler.
 func (m *Base) Updated() {
 	m.Revision++
+}
+
+// Determine object path.
+func (m *Base) Path(db libmodel.DB) (path string, err error) {
+	parts := []string{}
+	node := m
+	Walk:
+		for {
+			parent := Ref{}
+			parent.With(node.Parent)
+			switch parent.Kind {
+			case FolderKind:
+				f := &Folder{Base: Base{ID: parent.ID}}
+				err = db.Get(f)
+				if err != nil {
+					return
+				}
+				parts = append(parts, f.Name)
+				node = &f.Base
+			case DatacenterKind:
+				f := &Datacenter{Base: Base{ID: parent.ID}}
+				err = db.Get(f)
+				if err != nil {
+					return
+				}
+				parts = append(parts, f.Name)
+				node = &f.Base
+			case ClusterKind:
+				f := &Cluster{Base: Base{ID: parent.ID}}
+				err = db.Get(f)
+				if err != nil {
+					return
+				}
+				parts = append(parts, f.Name)
+				node = &f.Base
+			case HostKind:
+				f := &Host{Base: Base{ID: parent.ID}}
+				err = db.Get(f)
+				if err != nil {
+					return
+				}
+				parts = append(parts, f.Name)
+				node = &f.Base
+			default:
+				break Walk
+			}
+		}
+
+	path = strings.Join(parts, "/")
+	return
 }
 
 //
