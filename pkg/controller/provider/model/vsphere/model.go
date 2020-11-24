@@ -111,6 +111,7 @@ Walk:
 			}
 			parts = append(parts, m.Name)
 			node = &m.Base
+			break Walk
 		case ClusterKind:
 			m := &Cluster{}
 			m.WithRef(parent)

@@ -183,7 +183,7 @@ func (r *Builder) mapping(vmID string, mp *plan.Map, object *vmio.VirtualMachine
 		ds := &mp.Datastores[i]
 		id := &ds.Source.ID
 		if translator != nil {
-			dsID, tErr := translator.networkID(*id)
+			dsID, tErr := translator.DatastoreID(*id)
 			if tErr != nil {
 				err = liberr.Wrap(tErr)
 				return
@@ -365,8 +365,8 @@ func (r *HostTranslator) DatastoreID(in string) (out string, err error) {
 		err = liberr.Wrap(err)
 		return
 	}
-	network := &vsphere.Datastore{}
-	status, pErr := r.inventory.Get(network, in)
+	ds := &vsphere.Datastore{}
+	status, pErr := r.inventory.Get(ds, in)
 	if pErr != nil {
 		err = liberr.Wrap(pErr)
 		return
@@ -375,7 +375,7 @@ func (r *HostTranslator) DatastoreID(in string) (out string, err error) {
 		err = liberr.New(http.StatusText(status))
 		return
 	}
-	object, fErr := r.finder.Datastore(ctx, network.Path)
+	object, fErr := r.finder.Datastore(ctx, ds.Path)
 	if fErr != nil {
 		err = liberr.Wrap(fErr)
 		return

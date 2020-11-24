@@ -90,6 +90,12 @@ func (h VMHandler) Get(ctx *gin.Context) {
 	}
 	r := &VM{}
 	r.With(m)
+	r.Path, err = m.Path(db)
+	if err != nil {
+		Log.Trace(err)
+		ctx.Status(http.StatusInternalServerError)
+		return
+	}
 	r.SelfLink = h.Link(h.Provider, m)
 	content := r.Content(true)
 

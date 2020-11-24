@@ -36,37 +36,6 @@ func (h *FolderHandler) AddRoutes(e *gin.Engine) {
 }
 
 //
-// Prepare to handle the request.
-func (h *FolderHandler) Prepare(ctx *gin.Context) int {
-	status := h.Handler.Prepare(ctx)
-	if status != http.StatusOK {
-		ctx.Status(status)
-		return status
-	}
-	id := ctx.Param(FolderParam)
-	if id != "" {
-		m := &model.Folder{
-			Base: model.Base{
-				ID: id,
-			},
-		}
-		db := h.Reconciler.DB()
-		err := db.Get(m)
-		if errors.Is(err, model.NotFound) {
-			return http.StatusNotFound
-		}
-		if err != nil {
-			Log.Trace(err)
-			return http.StatusInternalServerError
-		}
-
-		h.folder = m
-	}
-
-	return http.StatusOK
-}
-
-//
 // List resources in a REST collection.
 func (h FolderHandler) List(ctx *gin.Context) {
 	status := h.Prepare(ctx)
@@ -105,10 +74,31 @@ func (h FolderHandler) Get(ctx *gin.Context) {
 		ctx.Status(status)
 		return
 	}
-
+	m := &model.Folder{
+		Base: model.Base{
+			ID: ctx.Param(FolderParam),
+		},
+	}
+	db := h.Reconciler.DB()
+	err := db.Get(m)
+	if errors.Is(err, model.NotFound) {
+		ctx.Status(http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		Log.Trace(err)
+		ctx.Status(http.StatusInternalServerError)
+		return
+	}
 	r := &Folder{}
-	r.With(h.folder)
-	r.SelfLink = h.Link(h.Provider, h.folder)
+	r.With(m)
+	r.Path, err = m.Path(db)
+	if err != nil {
+		Log.Trace(err)
+		ctx.Status(http.StatusInternalServerError)
+		return
+	}
+	r.SelfLink = h.Link(h.Provider, m)
 	content := r.Content(true)
 
 	ctx.JSON(http.StatusOK, content)

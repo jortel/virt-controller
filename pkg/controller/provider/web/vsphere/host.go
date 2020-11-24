@@ -99,6 +99,12 @@ func (h HostHandler) Get(ctx *gin.Context) {
 	}
 	r := &Host{}
 	r.With(m)
+	r.Path, err = m.Path(db)
+	if err != nil {
+		Log.Trace(err)
+		ctx.Status(http.StatusInternalServerError)
+		return
+	}
 	err = h.buildAdapters(r)
 	if err != nil {
 		Log.Trace(err)
