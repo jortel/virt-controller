@@ -33,6 +33,13 @@ type Resolver interface {
 }
 
 //
+// Search predicate.
+type Eq struct {
+	Key   string
+	Value string
+}
+
+//
 // REST API client.
 type Client struct {
 	Resolver
@@ -71,7 +78,7 @@ func (c *Client) Get(resource interface{}, id string) (status int, err error) {
 
 //
 // List resources in a collection.
-func (c *Client) List(list interface{}) (status int, err error) {
+func (c *Client) List(list interface{}, query ...Eq) (status int, err error) {
 	var resource interface{}
 	lt := reflect.TypeOf(list)
 	lv := reflect.ValueOf(list)
@@ -92,6 +99,13 @@ func (c *Client) List(list interface{}) (status int, err error) {
 	if err != nil {
 		err = liberr.Wrap(err)
 		return
+	}
+	if len(query) > 0 {
+		q := liburl.Values{}
+		for _, p := range query {
+			q.Add(p.Key, p.Value)
+		}
+		path += "?" + q.Encode()
 	}
 	status, err = c.get(path, resource)
 

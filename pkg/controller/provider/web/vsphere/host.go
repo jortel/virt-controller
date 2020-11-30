@@ -24,7 +24,7 @@ const (
 //
 // Host handler.
 type HostHandler struct {
-	base.Handler
+	Handler
 }
 
 //
@@ -48,7 +48,8 @@ func (h HostHandler) List(ctx *gin.Context) {
 	err := db.List(
 		&list,
 		libmodel.ListOptions{
-			Page: &h.Page,
+			Predicate: h.Predicate(ctx),
+			Page:      &h.Page,
 		})
 	if err != nil {
 		Log.Trace(err)

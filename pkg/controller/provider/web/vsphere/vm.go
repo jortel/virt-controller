@@ -22,7 +22,7 @@ const (
 //
 // Virtual Machine handler.
 type VMHandler struct {
-	base.Handler
+	Handler
 }
 
 //
@@ -46,7 +46,8 @@ func (h VMHandler) List(ctx *gin.Context) {
 	err := db.List(
 		&list,
 		libmodel.ListOptions{
-			Page: &h.Page,
+			Predicate: h.Predicate(ctx),
+			Page:      &h.Page,
 		})
 	if err != nil {
 		Log.Trace(err)

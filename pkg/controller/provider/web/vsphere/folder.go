@@ -22,7 +22,7 @@ const (
 //
 // Folder handler.
 type FolderHandler struct {
-	base.Handler
+	Handler
 	// Selected folder.
 	folder *model.Folder
 }
@@ -48,7 +48,8 @@ func (h FolderHandler) List(ctx *gin.Context) {
 	err := db.List(
 		&list,
 		libmodel.ListOptions{
-			Page: &h.Page,
+			Predicate: h.Predicate(ctx),
+			Page:      &h.Page,
 		})
 	if err != nil {
 		Log.Trace(err)

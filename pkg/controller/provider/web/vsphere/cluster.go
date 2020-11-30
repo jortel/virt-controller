@@ -22,7 +22,7 @@ const (
 //
 // Cluster handler.
 type ClusterHandler struct {
-	base.Handler
+	Handler
 	// Selected cluster.
 	cluster *model.Cluster
 }
@@ -48,7 +48,8 @@ func (h ClusterHandler) List(ctx *gin.Context) {
 	err := db.List(
 		&list,
 		libmodel.ListOptions{
-			Page: &h.Page,
+			Predicate: h.Predicate(ctx),
+			Page:      &h.Page,
 		})
 	if err != nil {
 		Log.Trace(err)

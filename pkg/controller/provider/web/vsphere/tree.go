@@ -7,7 +7,6 @@ import (
 	"github.com/konveyor/controller/pkg/ref"
 	api "github.com/konveyor/virt-controller/pkg/apis/virt/v1alpha1"
 	model "github.com/konveyor/virt-controller/pkg/controller/provider/model/vsphere"
-	"github.com/konveyor/virt-controller/pkg/controller/provider/web/base"
 	"net/http"
 )
 
@@ -22,7 +21,7 @@ const (
 //
 // Tree handler.
 type TreeHandler struct {
-	base.Handler
+	Handler
 	// Datacenters list.
 	datacenters []model.Datacenter
 }
