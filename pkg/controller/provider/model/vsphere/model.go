@@ -31,7 +31,7 @@ type Base struct {
 	// Managed object ID.
 	ID string `sql:"pk"`
 	// Name
-	Name string `sql:""`
+	Name string `sql:"index(b)"`
 	// Parent
 	Parent string `sql:"index(a)"`
 	// Revision
