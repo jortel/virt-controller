@@ -79,6 +79,76 @@ func (r *Builder) Secret(vmID string, in, object *core.Secret) (err error) {
 }
 
 //
+// Build the VMIO VM Import Spec.
+func (r *Builder) Import(vmID string, mp *plan.Map, object *vmio.VirtualMachineImportSpec) (err error) {
+	vm := &vsphere.VM{}
+	status, pErr := r.Inventory.Get(vm, vmID)
+	if pErr != nil {
+		err = liberr.Wrap(pErr)
+		return
+	}
+	switch status {
+	case http.StatusOK:
+		uuid := vm.UUID
+		object.TargetVMName = &vm.Name
+		object.Source.Vmware = &vmio.VirtualMachineImportVmwareSourceSpec{
+			VM: vmio.VirtualMachineImportVmwareSourceVMSpec{
+				ID: &uuid,
+			},
+		}
+		object.Source.Vmware.Mappings, err = r.mapping(mp)
+		if err != nil {
+			err = liberr.Wrap(err)
+			return
+		}
+	default:
+		err = liberr.New(
+			fmt.Sprintf(
+				"VM %s lookup failed: %s",
+				vmID,
+				http.StatusText(status)))
+	}
+
+	return
+}
+
+//
+// Build tasks.
+func (r *Builder) Tasks(vmID string) (list []*plan.Task, err error) {
+	vm := &vsphere.VM{}
+	status, pErr := r.Inventory.Get(vm, vmID)
+	if pErr != nil {
+		err = liberr.Wrap(pErr)
+		return
+	}
+	switch status {
+	case http.StatusOK:
+		for _, disk := range vm.Disks {
+			mB := disk.Capacity / 0x100000
+			list = append(
+				list,
+				&plan.Task{
+					Name: disk.File,
+					Progress: libitr.Progress{
+						Total: mB,
+					},
+					Annotations: map[string]string{
+						"unit": "MB",
+					},
+				})
+		}
+	default:
+		err = liberr.New(
+			fmt.Sprintf(
+				"VM %s lookup failed: %s",
+				vmID,
+				http.StatusText(status)))
+	}
+
+	return
+}
+
+//
 // Find host ID for VM.
 func (r *Builder) hostID(vmID string) (hostID string, err error) {
 	vm := &vsphere.VM{}
@@ -145,17 +215,21 @@ func (r *Builder) host(hostID string) (host *vsphere.Host, err error) {
 
 //
 // Build the VMIO ResourceMapping CR.
-func (r *Builder) mapping(vmID string, mp *plan.Map, object *vmio.VirtualMachineImportSpec) (err error) {
+func (r *Builder) mapping(in *plan.Map) (out *vmio.VmwareMappings, err error) {
 	netMap := []vmio.NetworkResourceMappingItem{}
 	dsMap := []vmio.StorageResourceMappingItem{}
-	for i := range mp.Networks {
-		network := &mp.Networks[i]
-		id := &network.Source.ID
+	for i := range in.Networks {
+		network := &in.Networks[i]
+		name, pErr := r.netName(network.Source.ID)
+		if pErr != nil {
+			err = liberr.Wrap(pErr)
+			return
+		}
 		netMap = append(
 			netMap,
 			vmio.NetworkResourceMappingItem{
 				Source: vmio.Source{
-					ID: id,
+					Name: name,
 				},
 				Target: vmio.ObjectIdentifier{
 					Namespace: &network.Destination.Namespace,
@@ -164,21 +238,25 @@ func (r *Builder) mapping(vmID string, mp *plan.Map, object *vmio.VirtualMachine
 				Type: &network.Destination.Type,
 			})
 	}
-	for i := range mp.Datastores {
-		ds := &mp.Datastores[i]
-		id := &ds.Source.ID
+	for i := range in.Datastores {
+		ds := &in.Datastores[i]
+		name, pErr := r.dsName(ds.Source.ID)
+		if pErr != nil {
+			err = liberr.Wrap(pErr)
+			return
+		}
 		dsMap = append(
 			dsMap,
 			vmio.StorageResourceMappingItem{
 				Source: vmio.Source{
-					ID: id,
+					ID: name,
 				},
 				Target: vmio.ObjectIdentifier{
 					Name: ds.Destination.StorageClass,
 				},
 			})
 	}
-	object.Source.Vmware.Mappings = &vmio.VmwareMappings{
+	out = &vmio.VmwareMappings{
 		NetworkMappings: &netMap,
 		StorageMappings: &dsMap,
 	}
@@ -187,70 +265,38 @@ func (r *Builder) mapping(vmID string, mp *plan.Map, object *vmio.VirtualMachine
 }
 
 //
-// Build the VMIO VM Import Spec.
-func (r *Builder) Import(vmID string, mp *plan.Map, object *vmio.VirtualMachineImportSpec) (err error) {
-	vm := &vsphere.VM{}
-	status, pErr := r.Inventory.Get(vm, vmID)
-	if pErr != nil {
-		err = liberr.Wrap(pErr)
+// Determine network name.
+func (r *Builder) netName(id string) (name *string, err error) {
+	network := &vsphere.Network{}
+	status, err := r.Inventory.Get(network, id)
+	if err != nil {
+		err = liberr.Wrap(err)
 		return
 	}
 	switch status {
 	case http.StatusOK:
-		uuid := vm.UUID
-		object.TargetVMName = &vm.Name
-		object.Source.Vmware = &vmio.VirtualMachineImportVmwareSourceSpec{
-			VM: vmio.VirtualMachineImportVmwareSourceVMSpec{
-				ID: &uuid,
-			},
-		}
-		err = r.mapping(vmID, mp, object)
-		if err != nil {
-			err = liberr.Wrap(err)
-			return
-		}
+		name = &network.Name
 	default:
-		err = liberr.New(
-			fmt.Sprintf(
-				"VM %s lookup failed: %s",
-				vmID,
-				http.StatusText(status)))
+		err = liberr.New(http.StatusText(status))
 	}
 
 	return
 }
 
 //
-// Build tasks.
-func (r *Builder) Tasks(vmID string) (list []*plan.Task, err error) {
-	vm := &vsphere.VM{}
-	status, pErr := r.Inventory.Get(vm, vmID)
-	if pErr != nil {
-		err = liberr.Wrap(pErr)
+// Determine datastore name.
+func (r *Builder) dsName(id string) (name *string, err error) {
+	network := &vsphere.Datastore{}
+	status, err := r.Inventory.Get(network, id)
+	if err != nil {
+		err = liberr.Wrap(err)
 		return
 	}
 	switch status {
 	case http.StatusOK:
-		for _, disk := range vm.Disks {
-			mB := disk.Capacity / 0x100000
-			list = append(
-				list,
-				&plan.Task{
-					Name: disk.File,
-					Progress: libitr.Progress{
-						Total: mB,
-					},
-					Annotations: map[string]string{
-						"unit": "MB",
-					},
-				})
-		}
+		name = &network.Name
 	default:
-		err = liberr.New(
-			fmt.Sprintf(
-				"VM %s lookup failed: %s",
-				vmID,
-				http.StatusText(status)))
+		err = liberr.New(http.StatusText(status))
 	}
 
 	return
