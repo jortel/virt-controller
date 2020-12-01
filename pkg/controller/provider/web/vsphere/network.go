@@ -119,7 +119,9 @@ func (h NetworkHandler) Link(p *api.Provider, m *model.Network) string {
 // REST Resource.
 type Network struct {
 	Resource
-	Tag string `json:"tag"`
+	Type     string     `json:"type"`
+	DVSwitch *model.Ref `json:"dvSwitch,omitempty"`
+	Tag      string     `json:"tag,omitempty"`
 }
 
 //
@@ -127,6 +129,12 @@ type Network struct {
 func (r *Network) With(m *model.Network) {
 	r.Resource.With(&m.Base)
 	r.Tag = m.Tag
+	if len(m.DVSwitch) > 0 {
+		r.DVSwitch = (&model.Ref{}).With(m.DVSwitch)
+		r.Type = "dvportgroup"
+	} else {
+		r.Type = "standard"
+	}
 }
 
 //
