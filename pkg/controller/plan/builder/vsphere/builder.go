@@ -20,6 +20,12 @@ import (
 )
 
 //
+// Phases.
+const (
+	Pending = "Pending"
+)
+
+//
 // vSphere builder.
 type Builder struct {
 	// Client.
@@ -233,7 +239,8 @@ func (r *Builder) Tasks(vmID string) (list []*plan.Task, err error) {
 			list = append(
 				list,
 				&plan.Task{
-					Name: disk.File,
+					Phase: Pending,
+					Name:  disk.File,
 					Progress: libitr.Progress{
 						Total: mB,
 					},

@@ -40,6 +40,7 @@ var (
 //
 // Phases.
 const (
+	Pending         = "Pending"
 	Started         = "Started"
 	CreatePreHook   = "CreatePreHook"
 	PreHookCreated  = "PreHookCreated"
@@ -378,6 +379,7 @@ func (r *Migration) buildPipeline(vm *plan.VM) (pipeline []*plan.Step, err error
 				pipeline,
 				&plan.Step{
 					Task: plan.Task{
+						Phase:       Pending,
 						Name:        PreHook,
 						Description: "Run pre-migration hook.",
 						Progress:    libitr.Progress{Total: 1},
@@ -397,6 +399,7 @@ func (r *Migration) buildPipeline(vm *plan.VM) (pipeline []*plan.Step, err error
 				pipeline,
 				&plan.Step{
 					Task: plan.Task{
+						Phase:       Pending,
 						Name:        DiskTransfer,
 						Description: "Transfer disks.",
 						Progress: libitr.Progress{
@@ -412,6 +415,7 @@ func (r *Migration) buildPipeline(vm *plan.VM) (pipeline []*plan.Step, err error
 				pipeline,
 				&plan.Step{
 					Task: plan.Task{
+						Phase:       Pending,
 						Name:        ImageConversion,
 						Description: "Convert image to kubevirt.",
 						Progress:    libitr.Progress{Total: 1},
@@ -422,6 +426,7 @@ func (r *Migration) buildPipeline(vm *plan.VM) (pipeline []*plan.Step, err error
 				pipeline,
 				&plan.Step{
 					Task: plan.Task{
+						Phase:       Pending,
 						Name:        PostHook,
 						Description: "Run post-migration hook.",
 						Progress:    libitr.Progress{Total: 1},
