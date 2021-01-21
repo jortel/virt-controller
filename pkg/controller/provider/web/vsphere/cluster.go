@@ -115,13 +115,15 @@ func (h ClusterHandler) Link(p *api.Provider, m *model.Cluster) string {
 // REST Resource.
 type Cluster struct {
 	Resource
-	Networks    []model.Ref `json:"networks"`
-	Datastores  []model.Ref `json:"datastores"`
-	DasEnabled  bool        `json:"dasEnabled"`
-	DasVms      []model.Ref `json:"DasVms"`
-	DrsEnabled  bool        `json:"drsEnabled"`
-	DrsBehavior string      `json:"drsBehavior"`
-	DrsVms      []model.Ref `json:"drsVms"`
+	Networks        []model.Ref `json:"networks"`
+	Datastores      []model.Ref `json:"datastores"`
+	DasEnabled      bool        `json:"dasEnabled"`
+	DasVms          []model.Ref `json:"DasVms"`
+	DrsEnabled      bool        `json:"drsEnabled"`
+	DrsBehavior     string      `json:"drsBehavior"`
+	DrsVms          []model.Ref `json:"drsVms"`
+	HostAffinityVms []model.Ref `json:"hostAffinityVms"`
+	DpmEnabled      bool        `json:"dpmEnabled"`
 }
 
 //
@@ -135,6 +137,8 @@ func (r *Cluster) With(m *model.Cluster) {
 	r.Datastores = m.Datastores
 	r.DasVms = m.DasVms
 	r.DrsVms = m.DasVms
+	r.HostAffinityVms = m.HostAffinityVms
+	r.DpmEnabled = m.DpmEnabled
 }
 
 //

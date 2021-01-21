@@ -64,6 +64,8 @@ const (
 	fDrsEnabled    = "configuration.drsConfig.enabled"
 	fDrsVmBehavior = "configuration.drsConfig.defaultVmBehavior"
 	fDrsVmCfg      = "configuration.drsVmConfig"
+	fClusterRule   = "configuration.rule"
+	fClusterCfgEx  = "configurationEx"
 	// Host
 	fVm             = "vm"
 	fProductName    = "config.product.name"
@@ -588,6 +590,8 @@ func (r *Reconciler) propertySpec() []types.PropertySpec {
 				fHost,
 				fNetwork,
 				fDatastore,
+				fClusterRule,
+				fClusterCfgEx,
 			},
 		},
 		{ // Host

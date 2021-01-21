@@ -189,14 +189,16 @@ type Datacenter struct {
 
 type Cluster struct {
 	Base
-	Hosts       []Ref  `sql:""`
-	Networks    []Ref  `sql:""`
-	Datastores  []Ref  `sql:""`
-	DasEnabled  bool   `sql:""`
-	DasVms      []Ref  `sql:""`
-	DrsEnabled  bool   `sql:""`
-	DrsBehavior string `sql:""`
-	DrsVms      []Ref  `sql:""`
+	Hosts           []Ref  `sql:""`
+	Networks        []Ref  `sql:""`
+	Datastores      []Ref  `sql:""`
+	DasEnabled      bool   `sql:""`
+	DasVms          []Ref  `sql:""`
+	DrsEnabled      bool   `sql:""`
+	DrsBehavior     string `sql:""`
+	DrsVms          []Ref  `sql:""`
+	HostAffinityVms []Ref  `sql:""`
+	DpmEnabled      bool   `sql:""`
 }
 
 type Host struct {

@@ -201,6 +201,28 @@ func (v *ClusterAdapter) Apply(u types.ObjectUpdate) {
 				if b, cast := p.Val.(types.DrsBehavior); cast {
 					v.model.DrsBehavior = string(b)
 				}
+			case fClusterCfgEx:
+				if cfg, cast := p.Val.(*types.ClusterConfigInfoEx); cast {
+					v.model.DpmEnabled = false
+					if cfg.DpmConfigInfo != nil && cfg.DpmConfigInfo.Enabled != nil {
+						v.model.DpmEnabled = *cfg.DpmConfigInfo.Enabled
+					}
+				}
+			case fClusterRule:
+				if array, cast := p.Val.(types.ArrayOfClusterRuleInfo); cast {
+					v.model.HostAffinityVms = []model.Ref{}
+					for _, rule := range array.ClusterRuleInfo {
+						switch rule.(type) {
+						case *types.ClusterAffinityRuleSpec:
+							aRule := rule.(*types.ClusterAffinityRuleSpec)
+							for _, ref := range aRule.Vm {
+								v.model.HostAffinityVms = append(
+									v.model.HostAffinityVms,
+									v.Ref(ref))
+							}
+						}
+					}
+				}
 			}
 		}
 	}
