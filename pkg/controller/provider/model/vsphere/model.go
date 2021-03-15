@@ -332,6 +332,7 @@ type Datastore struct {
 	Capacity        int64  `sql:""`
 	Free            int64  `sql:""`
 	MaintenanceMode string `sql:""`
+	Hosts           []Ref  `sql:""`
 }
 
 type VM struct {

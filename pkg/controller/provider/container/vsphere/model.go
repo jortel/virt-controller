@@ -465,6 +465,14 @@ func (v *DatastoreAdapter) Apply(u types.ObjectUpdate) {
 				if s, cast := p.Val.(string); cast {
 					v.model.MaintenanceMode = s
 				}
+			case fHost:
+				refList := []model.Ref{}
+				if array, cast := p.Val.(types.ArrayOfDatastoreHostMount); cast {
+					for _, m := range array.DatastoreHostMount {
+						refList = append(refList, v.Ref(m.Key))
+					}
+				}
+				v.model.Hosts = refList
 			}
 		}
 	}
