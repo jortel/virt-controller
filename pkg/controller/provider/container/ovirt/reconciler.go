@@ -28,36 +28,6 @@ const (
 )
 
 //
-// Event search.
-var EventQ string
-
-func init() {
-	codes := []string{}
-	for _, n := range []int{
-		DataCenterAdded,
-		DataCenterUpdated,
-		DataCenterDeleted,
-		ClusterAdded,
-		ClusterUpdated,
-		ClusterDeleted,
-		HostAdded,
-		HostUpdated,
-		HostDeleted,
-		VmAdded,
-		VmUpdated,
-		VmDeleted,
-	} {
-		codes = append(codes, fmt.Sprintf("type=%d", n))
-	}
-	EventQ = strings.Join(
-		[]string{
-			fmt.Sprintf("date>%s", time.Now().Format("01/02/2006")),
-			strings.Join(codes, " or "),
-		},
-		" and ")
-}
-
-//
 // oVirt data reconciler.
 type Reconciler struct {
 	// Provider
@@ -341,11 +311,22 @@ func (r *Reconciler) refresh() (err error) {
 
 //
 // List Event collection.
+// Query by list of event types and date.
 func (r *Reconciler) listEvent() (itr fb.Iterator, err error) {
 	eventList := EventList{}
+	codes := []string{}
+	for n, _ := range adapterMap {
+		codes = append(codes, fmt.Sprintf("type=%d", n))
+	}
+	eventQ := strings.Join(
+		[]string{
+			fmt.Sprintf("date>%s", time.Now().Format("01/02/2006")),
+			strings.Join(codes, " or "),
+		},
+		" and ")
 	search := fmt.Sprintf(
 		"%s sortby time asc page %d",
-		EventQ,
+		eventQ,
 		r.event.page)
 	err = r.client.list(
 		"events",
