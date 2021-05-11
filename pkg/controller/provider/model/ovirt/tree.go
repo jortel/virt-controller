@@ -17,6 +17,8 @@ var (
 	VmKind          = libref.ToKind(VM{})
 )
 
+//
+// Types.
 type Tree = base.Tree
 type TreeNode = base.TreeNode
 type BranchNavigator = base.BranchNavigator

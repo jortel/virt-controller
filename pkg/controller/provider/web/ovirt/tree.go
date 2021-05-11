@@ -17,6 +17,8 @@ const (
 	TreeVmRoot = TreeRoot + "/vm"
 )
 
+//
+// Types.
 type Tree = base.Tree
 type TreeNode = base.TreeNode
 
@@ -86,19 +88,17 @@ func (h TreeHandler) Tree(ctx *gin.Context) {
 	db := h.Reconciler.DB()
 	content := TreeNode{}
 	for _, dc := range h.datacenters {
-		navigator := TreeNavigator{db}
-		builder := NodeBuilder{
-			provider: h.Provider,
-			detail: map[string]bool{
-				model.ClusterKind: h.Detail,
-				model.HostKind:    h.Detail,
-				model.VmKind:      h.Detail,
+		tr := Tree{
+			NodeBuilder: &NodeBuilder{
+				provider: h.Provider,
+				detail: map[string]bool{
+					model.ClusterKind: h.Detail,
+					model.HostKind:    h.Detail,
+					model.VmKind:      h.Detail,
+				},
 			},
 		}
-		tr := Tree{
-			NodeBuilder: builder.Node,
-		}
-		branch, err := tr.Build(&dc, navigator.Next)
+		branch, err := tr.Build(&dc, &BranchNavigator{db})
 		if err != nil {
 			log.Trace(
 				err,
@@ -120,13 +120,13 @@ func (h TreeHandler) Tree(ctx *gin.Context) {
 
 //
 // Tree (branch) navigator.
-type TreeNavigator struct {
+type BranchNavigator struct {
 	db libmodel.DB
 }
 
 //
 // Next (children) on the branch.
-func (n *TreeNavigator) Next(p libmodel.Model) (r []model.Model, err error) {
+func (n *BranchNavigator) Next(p libmodel.Model) (r []model.Model, err error) {
 	switch p.(type) {
 	case *model.DataCenter:
 		list, nErr := n.listCluster(p.(*model.DataCenter))
@@ -160,7 +160,7 @@ func (n *TreeNavigator) Next(p libmodel.Model) (r []model.Model, err error) {
 	return
 }
 
-func (n *TreeNavigator) listCluster(p *model.DataCenter) (list []model.Cluster, err error) {
+func (n *BranchNavigator) listCluster(p *model.DataCenter) (list []model.Cluster, err error) {
 	list = []model.Cluster{}
 	err = n.db.List(
 		&list,
@@ -170,7 +170,7 @@ func (n *TreeNavigator) listCluster(p *model.DataCenter) (list []model.Cluster, 
 	return
 }
 
-func (n *TreeNavigator) listHost(p *model.Cluster) (list []model.Host, err error) {
+func (n *BranchNavigator) listHost(p *model.Cluster) (list []model.Host, err error) {
 	list = []model.Host{}
 	err = n.db.List(
 		&list,
@@ -180,7 +180,7 @@ func (n *TreeNavigator) listHost(p *model.Cluster) (list []model.Host, err error
 	return
 }
 
-func (n *TreeNavigator) listVM(p *model.Host) (list []model.VM, err error) {
+func (n *BranchNavigator) listVM(p *model.Host) (list []model.VM, err error) {
 	list = []model.VM{}
 	err = n.db.List(
 		&list,

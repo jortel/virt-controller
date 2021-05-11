@@ -7,7 +7,9 @@ import (
 
 //
 // Node builder.
-type NodeBuilder func(p *TreeNode, m libmodel.Model) *TreeNode
+type NodeBuilder interface {
+	Node(p *TreeNode, m libmodel.Model) *TreeNode
+}
 
 //
 // Tree.
@@ -20,11 +22,11 @@ type Tree struct {
 //
 // Build the tree
 func (r *Tree) Build(m model.Model, navigator model.BranchNavigator) (*TreeNode, error) {
-	root := r.NodeBuilder(nil, m)
+	root := r.Node(nil, m)
 	node := root
 	var walk func(*model.TreeNode)
 	walk = func(n *model.TreeNode) {
-		child := r.NodeBuilder(node, n.Model)
+		child := r.Node(node, n.Model)
 		node.Children = append(node.Children, child)
 		node = child
 		defer func() {
@@ -55,7 +57,7 @@ func (r *Tree) Ancestry(leaf model.Model, navigator model.ParentNavigator) (*Tre
 	node := root
 	var walk func(*model.TreeNode)
 	walk = func(n *model.TreeNode) {
-		child := r.NodeBuilder(node, n.Model)
+		child := r.Node(node, n.Model)
 		node.Children = append(node.Children, child)
 		node = child
 		defer func() {
@@ -72,7 +74,7 @@ func (r *Tree) Ancestry(leaf model.Model, navigator model.ParentNavigator) (*Tre
 	if err != nil {
 		return nil, err
 	}
-	root = r.NodeBuilder(nil, modelRoot.Model)
+	root = r.Node(nil, modelRoot.Model)
 	node = root
 	for _, child := range modelRoot.Children {
 		walk(child)

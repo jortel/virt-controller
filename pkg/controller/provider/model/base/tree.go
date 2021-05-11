@@ -42,7 +42,7 @@ func (r *Tree) Build(root Model, navigator BranchNavigator) (treeRoot *TreeNode,
 				node = node.Parent
 			}()
 		}
-		list, err := navigator(model)
+		list, err := navigator.Next(model)
 		if err != nil {
 			return err
 		}
@@ -72,7 +72,7 @@ func (r *Tree) Ancestry(leaf Model, navigator ParentNavigator) (treeRoot *TreeNo
 	}
 	treeRoot = node
 	for {
-		parent, nErr := navigator(node.Model)
+		parent, nErr := navigator.Next(node.Model)
 		if nErr != nil {
 			err = nErr
 			return
@@ -108,9 +108,13 @@ type TreeNode struct {
 //
 // Tree navigator.
 // Navigate up the parent tree.
-type ParentNavigator func(Model) (Model, error)
+type ParentNavigator interface {
+	Next(Model) (Model, error)
+}
 
 //
 // Tree navigator.
 // Navigate down the children.
-type BranchNavigator func(Model) ([]Model, error)
+type BranchNavigator interface {
+	Next(Model) ([]Model, error)
+}
