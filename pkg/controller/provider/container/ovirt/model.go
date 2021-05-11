@@ -8,6 +8,26 @@ import (
 )
 
 //
+// Event codes.
+// VNICProfileAdded   = 1122
+// VNICProfileUpdated = 1124
+// VNICProfileDeleted = 1126
+const (
+	DataCenterAdded   = 950
+	DataCenterUpdated = 952
+	DataCenterDeleted = 954
+	ClusterAdded      = 809
+	ClusterUpdated    = 811
+	ClusterDeleted    = 813
+	HostAdded         = 42
+	HostUpdated       = 43
+	HostDeleted       = 44
+	VmAdded           = 34
+	VmUpdated         = 35
+	VmDeleted         = 113
+)
+
+//
 // All adapters.
 var adapterList []Adapter
 
