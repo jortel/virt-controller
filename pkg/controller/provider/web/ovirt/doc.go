@@ -47,6 +47,11 @@ func Handlers(container *container.Container) []libweb.RequestHandler {
 				base.Handler{Container: container},
 			},
 		},
+		&VNICProfileHandler{
+			Handler: Handler{
+				base.Handler{Container: container},
+			},
+		},
 		&StorageDomainHandler{
 			Handler: Handler{
 				base.Handler{Container: container},
