@@ -22,8 +22,6 @@ type Ref = base.Ref
 type Base struct {
 	// Managed object ID.
 	ID string `sql:"pk"`
-	// Parent
-	Parent Ref `sql:"d0,index(parent)"`
 	// Name
 	Name string `sql:"d0,index(name)"`
 	// Revision
@@ -72,10 +70,12 @@ type DataCenter struct {
 
 type Cluster struct {
 	Base
+	DataCenter string `sql:"d0,index(parent)"`
 }
 
 type Network struct {
 	Base
+	DataCenter   string   `sql:"d0,index(parent)"`
 	VLan         Ref      `sql:""`
 	Usages       []string `sql:""`
 	VNICProfiles []Ref    `sql:""`
@@ -83,13 +83,15 @@ type Network struct {
 
 type VNICProfile struct {
 	Base
-	QoS Ref `sql:""`
+	DataCenter string `sql:"d0,index(parent)"`
+	QoS        Ref    `sql:""`
 }
 
 type StorageDomain struct {
 	Base
-	Type    string `sql:""`
-	Storage struct {
+	DataCenter string `sql:"d0,index(parent)"`
+	Type       string `sql:""`
+	Storage    struct {
 		Type string
 	} `sql:""`
 	Available int64 `sql:""`
@@ -98,8 +100,10 @@ type StorageDomain struct {
 
 type Host struct {
 	Base
+	Cluster string `sql:"d0,index(parent)"`
 }
 
 type VM struct {
 	Base
+	Host string `sql:"d0,index(parent)"`
 }

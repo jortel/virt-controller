@@ -131,8 +131,9 @@ func (n *BranchNavigator) Next(p libmodel.Model) (r []model.Model, err error) {
 	case *model.DataCenter:
 		list, nErr := n.listCluster(p.(*model.DataCenter))
 		if nErr == nil {
-			for _, m := range list {
-				r = append(r, &m)
+			for i := range list {
+				m := &list[i]
+				r = append(r, m)
 			}
 		} else {
 			err = nErr
@@ -140,8 +141,9 @@ func (n *BranchNavigator) Next(p libmodel.Model) (r []model.Model, err error) {
 	case *model.Cluster:
 		list, nErr := n.listHost(p.(*model.Cluster))
 		if nErr == nil {
-			for _, m := range list {
-				r = append(r, &m)
+			for i := range list {
+				m := &list[i]
+				r = append(r, m)
 			}
 		} else {
 			err = nErr
@@ -149,8 +151,9 @@ func (n *BranchNavigator) Next(p libmodel.Model) (r []model.Model, err error) {
 	case *model.Host:
 		list, nErr := n.listVM(p.(*model.Host))
 		if nErr == nil {
-			for _, m := range list {
-				r = append(r, &m)
+			for i := range list {
+				m := &list[i]
+				r = append(r, m)
 			}
 		} else {
 			err = nErr
@@ -165,7 +168,7 @@ func (n *BranchNavigator) listCluster(p *model.DataCenter) (list []model.Cluster
 	err = n.db.List(
 		&list,
 		model.ListOptions{
-			Predicate: libmodel.Eq("parent", p.ID),
+			Predicate: libmodel.Eq("DataCenter", p.ID),
 		})
 	return
 }
@@ -175,7 +178,7 @@ func (n *BranchNavigator) listHost(p *model.Cluster) (list []model.Host, err err
 	err = n.db.List(
 		&list,
 		model.ListOptions{
-			Predicate: libmodel.Eq("parent", p.ID),
+			Predicate: libmodel.Eq("Cluster", p.ID),
 		})
 	return
 }
@@ -185,7 +188,7 @@ func (n *BranchNavigator) listVM(p *model.Host) (list []model.VM, err error) {
 	err = n.db.List(
 		&list,
 		model.ListOptions{
-			Predicate: libmodel.Eq("parent", p.ID),
+			Predicate: libmodel.Eq("Host", p.ID),
 		})
 	return
 }

@@ -145,12 +145,14 @@ func (h VMHandler) watch(ctx *gin.Context) {
 // REST Resource.
 type VM struct {
 	Resource
+	Host string `json:"host"`
 }
 
 //
 // Build the resource using the model.
 func (r *VM) With(m *model.VM) {
 	r.Resource.With(&m.Base)
+	r.Host = m.Host
 }
 
 //

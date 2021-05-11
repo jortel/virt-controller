@@ -87,7 +87,7 @@ func (r *Tree) Ancestry(leaf model.Model, navigator model.ParentNavigator) (*Tre
 // Tree node resource.
 type TreeNode struct {
 	// Parent node.
-	Parent *TreeNode
+	Parent *TreeNode `json:"-"`
 	// Object kind.
 	Kind string `json:"kind"`
 	// Object (resource).
