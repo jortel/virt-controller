@@ -173,12 +173,11 @@ func (r *StorageDomain) ApplyTo(m *model.StorageDomain) {
 	m.Available, _ = strconv.ParseInt(r.Available, 10, 64)
 	m.Used, _ = strconv.ParseInt(r.Used, 10, 64)
 	for _, ref := range r.DataCenter.List {
-		m.DataCenter = append(
-			m.DataCenter,
-			model.Ref{
-				Kind: model.DataCenterKind,
-				ID:   ref.ID,
-			})
+		m.Parent = model.Ref{
+			Kind: model.DataCenterKind,
+			ID:   ref.ID,
+		}
+		break
 	}
 }
 

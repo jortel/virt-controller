@@ -148,7 +148,6 @@ type StorageDomain struct {
 	Type       string      `json:"type"`
 	Capacity   int64       `json:"capacity"`
 	Free       int64       `json:"free"`
-	DataCenter []model.Ref `json:"dataCenter"`
 	Storage    struct {
 		Type string `json:"type"`
 	} `json:"storage"`
@@ -161,7 +160,6 @@ func (r *StorageDomain) With(m *model.StorageDomain) {
 	r.Type = m.Type
 	r.Capacity = m.Available
 	r.Free = m.Available - m.Used
-	r.DataCenter = m.DataCenter
 	r.Storage.Type = m.Storage.Type
 }
 

@@ -118,7 +118,6 @@ type VNICProfile struct {
 
 type StorageDomain struct {
 	Base
-	DataCenter []Ref  `sql:""`
 	Type       string `sql:""`
 	Storage    struct {
 		Type string
