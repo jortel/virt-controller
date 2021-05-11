@@ -112,7 +112,7 @@ func (h VNICProfileHandler) Link(p *api.Provider, m *model.VNICProfile) string {
 		VNICProfileRoot,
 		base.Params{
 			base.ProviderParam: string(p.UID),
-			VNICProfileParam:       m.ID,
+			VNICProfileParam:   m.ID,
 		})
 }
 
