@@ -129,6 +129,10 @@ type VMList struct {
 type Network struct {
 	Base
 	DataCenter Ref `json:"data_center"`
+	VLan       Ref `json:"vlan"`
+	Usages     struct {
+		Usage []string `json:"usage"`
+	} `json:"usages"`
 }
 
 //
@@ -140,6 +144,11 @@ func (r *Network) ApplyTo(m *model.Network) {
 		Kind: model.DataCenterKind,
 		ID:   r.DataCenter.ID,
 	}
+	m.VLan = model.Ref{
+		Kind: "VLan",
+		ID:   r.VLan.ID,
+	}
+	m.Usages = r.Usages.Usage
 }
 
 //

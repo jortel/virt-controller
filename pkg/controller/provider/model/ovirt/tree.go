@@ -8,12 +8,13 @@ import (
 //
 // Kinds
 var (
-	DataCenterKind = libref.ToKind(DataCenter{})
-	ClusterKind    = libref.ToKind(Cluster{})
-	HostKind       = libref.ToKind(Host{})
-	NetKind        = libref.ToKind(Network{})
-	StorageKind    = libref.ToKind(StorageDomain{})
-	VmKind         = libref.ToKind(VM{})
+	DataCenterKind  = libref.ToKind(DataCenter{})
+	VNICProfileKind = libref.ToKind(VNICProfile{})
+	ClusterKind     = libref.ToKind(Cluster{})
+	HostKind        = libref.ToKind(Host{})
+	NetKind         = libref.ToKind(Network{})
+	StorageKind     = libref.ToKind(StorageDomain{})
+	VmKind          = libref.ToKind(VM{})
 )
 
 //

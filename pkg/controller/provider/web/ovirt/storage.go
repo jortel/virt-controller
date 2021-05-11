@@ -145,10 +145,10 @@ func (h StorageDomainHandler) watch(ctx *gin.Context) {
 // REST Resource.
 type StorageDomain struct {
 	Resource
-	Type       string      `json:"type"`
-	Capacity   int64       `json:"capacity"`
-	Free       int64       `json:"free"`
-	Storage    struct {
+	Type     string `json:"type"`
+	Capacity int64  `json:"capacity"`
+	Free     int64  `json:"free"`
+	Storage  struct {
 		Type string `json:"type"`
 	} `json:"storage"`
 }

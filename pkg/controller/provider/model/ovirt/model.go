@@ -109,6 +109,9 @@ type Cluster struct {
 
 type Network struct {
 	Base
+	VLan         Ref      `sql:""`
+	Usages       []string `sql:""`
+	VNICProfiles []Ref    `sql:""`
 }
 
 type VNICProfile struct {
@@ -118,8 +121,8 @@ type VNICProfile struct {
 
 type StorageDomain struct {
 	Base
-	Type       string `sql:""`
-	Storage    struct {
+	Type    string `sql:""`
+	Storage struct {
 		Type string
 	} `sql:""`
 	Available int64 `sql:""`
