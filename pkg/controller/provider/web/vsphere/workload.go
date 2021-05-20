@@ -63,30 +63,17 @@ func (h WorkloadHandler) Get(ctx *gin.Context) {
 		return
 	}
 	tr := Tree{
-		Provider: h.Provider,
-		DB:       db,
-		Detail: map[string]bool{
-			model.DatacenterKind: true,
-			model.ClusterKind:    true,
-			model.HostKind:       true,
-			model.VmKind:         true,
+		NodeBuilder: &NodeBuilder{
+			provider: h.Provider,
+			detail: map[string]bool{
+				model.DatacenterKind: true,
+				model.ClusterKind:    true,
+				model.HostKind:       true,
+				model.VmKind:         true,
+			},
 		},
 	}
-	navigator := func(m libmodel.Model) (ref model.Ref) {
-		switch m.(type) {
-		case *model.Folder:
-			ref = m.(*model.Folder).Parent
-		case *model.Host:
-			ref = m.(*model.Host).Parent
-		case *model.Cluster:
-			ref = m.(*model.Cluster).Parent
-		case *model.VM:
-			ref = m.(*model.VM).Host
-		}
-
-		return
-	}
-	root, err := tr.Ancestry(m, navigator)
+	root, err := tr.Ancestry(m, &WorkloadNavigator{db: db})
 	if err != nil {
 		log.Trace(
 			err,
@@ -111,6 +98,41 @@ func (h WorkloadHandler) Link(p *api.Provider, m *model.VM) string {
 			base.ProviderParam: string(p.UID),
 			VMParam:            m.ID,
 		})
+}
+
+//
+// Workload navigator.
+type WorkloadNavigator struct {
+	db libmodel.DB
+}
+
+//
+// Next parent.
+func (n *WorkloadNavigator) Next(m model.Model) (r model.Model, err error) {
+	switch m.(type) {
+	case *model.Host:
+		m := &model.Cluster{
+			Base: model.Base{
+				ID: m.(*model.Host).Parent.ID,
+			},
+		}
+		err = n.db.Get(m)
+		if err == nil {
+			r = m
+		}
+	case *model.VM:
+		m := &model.Host{
+			Base: model.Base{
+				ID: m.(*model.VM).Host,
+			},
+		}
+		err = n.db.Get(m)
+		if err == nil {
+			r = m
+		}
+	}
+
+	return
 }
 
 //
