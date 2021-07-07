@@ -1,8 +1,10 @@
 package base
 
 import (
+	"errors"
 	"github.com/gin-gonic/gin"
 	libcontainer "github.com/konveyor/controller/pkg/inventory/container"
+	libmodel "github.com/konveyor/controller/pkg/inventory/model"
 	libweb "github.com/konveyor/controller/pkg/inventory/web"
 	api "github.com/konveyor/forklift-controller/pkg/apis/forklift/v1beta1"
 	meta "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,6 +45,25 @@ func Link(path string, params Params) string {
 	}
 
 	return path
+}
+
+//
+// Dispatch to the endpoint handler method.
+func Use(ctx *gin.Context, fn func(ctx *gin.Context) error) {
+	err := fn(ctx)
+	if err == nil {
+		return
+	}
+	if errors.Is(err, libmodel.NotFound) {
+		ctx.Status(http.StatusNotFound)
+		return
+	}
+	log.Error(
+		err,
+		"Request failed.",
+		"URL",
+		ctx.Request.URL)
+	ctx.Status(http.StatusInternalServerError)
 }
 
 //
