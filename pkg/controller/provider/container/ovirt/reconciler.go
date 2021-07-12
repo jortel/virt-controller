@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/go-logr/logr"
+	liberr "github.com/konveyor/controller/pkg/error"
 	libmodel "github.com/konveyor/controller/pkg/inventory/model"
 	libweb "github.com/konveyor/controller/pkg/inventory/web"
 	"github.com/konveyor/controller/pkg/logging"
@@ -21,8 +22,20 @@ import (
 //
 // Settings
 const (
+	// Retry interval.
+	RetryInterval = 5 * time.Second
 	// Refresh interval.
 	RefreshInterval = 10 * time.Second
+)
+
+//
+// Phases
+const (
+	Started = ""
+	Load    = "load"
+	Loaded  = "loaded"
+	Parity  = "parity"
+	Refresh = "refresh"
 )
 
 //
@@ -36,14 +49,14 @@ type Reconciler struct {
 	log logr.Logger
 	// has parity.
 	parity bool
-	// load() completed.
-	loaded bool
 	// REST client.
 	client *Client
 	// cancel function.
 	cancel func()
 	// Last event ID.
 	lastEvent int
+	// Phase
+	phase string
 }
 
 //
@@ -127,27 +140,50 @@ func (r *Reconciler) Start() error {
 			case <-ctx.Done():
 				break try
 			default:
-				if r.loaded {
-					err := r.refresh()
-					if err != nil {
-						r.log.Error(err, "Refresh failed.")
-						r.parity = false
-					} else {
-						r.parity = true
+				var err error
+				r.log.V(3).Info(
+					"Running.",
+					"phase",
+					r.phase)
+				switch r.phase {
+				case Started:
+					err = r.noteLastEvent()
+					if err == nil {
+						r.phase = Load
 					}
-				} else {
-					err := r.noteLastEvent()
-					if err != nil {
-						r.log.Error(err, "Mark last event failed.")
-					}
+				case Load:
 					err = r.load()
 					if err == nil {
-						watchList = r.watch()
-					} else {
-						r.log.Error(err, "Load failed.")
+						r.phase = Loaded
 					}
+				case Loaded:
+					err := r.refresh()
+					if err == nil {
+						r.phase = Parity
+					}
+				case Parity:
+					watchList = r.watch()
+					r.phase = Refresh
+					r.parity = true
+				case Refresh:
+					err := r.refresh()
+					if err == nil {
+						r.parity = true
+						time.Sleep(RefreshInterval)
+					} else {
+						r.parity = false
+					}
+				default:
+					err = liberr.New("Phase unknown.")
 				}
-				time.Sleep(RefreshInterval)
+				if err != nil {
+					r.log.Error(
+						err,
+						"Failed.",
+						"phase",
+						r.phase)
+					time.Sleep(RetryInterval)
+				}
 			}
 		}
 	}
@@ -189,7 +225,7 @@ func (r *Reconciler) noteLastEvent() (err error) {
 	}
 
 	r.log.Info(
-		"Last event marked.",
+		"Last event noted.",
 		"id",
 		r.lastEvent)
 
@@ -234,13 +270,9 @@ func (r *Reconciler) load() (err error) {
 				"model",
 				libmodel.Describe(m))
 		}
-
 	}
 	err = tx.Commit()
-	if err == nil {
-		r.parity = true
-		r.loaded = true
-	} else {
+	if err != nil {
 		return
 	}
 

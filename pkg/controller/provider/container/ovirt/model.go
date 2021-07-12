@@ -1,12 +1,14 @@
 package ovirt
 
 import (
+	"fmt"
 	liberr "github.com/konveyor/controller/pkg/error"
 	fb "github.com/konveyor/controller/pkg/filebacked"
 	libcnt "github.com/konveyor/controller/pkg/inventory/container"
 	libmodel "github.com/konveyor/controller/pkg/inventory/model"
 	libweb "github.com/konveyor/controller/pkg/inventory/web"
 	model "github.com/konveyor/forklift-controller/pkg/controller/provider/model/ovirt"
+	"strconv"
 	"strings"
 )
 
@@ -108,6 +110,21 @@ type Adapter interface {
 	Apply(event *Event, client *Client) (updater Updater, err error)
 	// List handled event (codes).
 	Event() []int
+}
+
+//
+// Build pagination parameter.
+func paginate(page, max int) []libweb.Param {
+	return []libweb.Param{
+		{
+			Key:   "search",
+			Value: fmt.Sprintf("page %d", page),
+		},
+		{
+			Key:   "max",
+			Value: strconv.Itoa(max),
+		},
+	}
 }
 
 //
@@ -703,17 +720,27 @@ func (r *VMAdapter) Event() []int {
 // List the collection.
 func (r *VMAdapter) List(client *Client) (itr fb.Iterator, err error) {
 	vmList := VMList{}
-	err = client.list("vms", &vmList, r.follow())
-	if err != nil {
-		return
-	}
 	list := fb.NewList()
-	for _, object := range vmList.Items {
-		m := &model.VM{
-			Base: model.Base{ID: object.ID},
+	page := 0
+	for {
+		page++
+		params := append(
+			paginate(page, 500),
+			r.follow())
+		err = client.list("vms", &vmList, params...)
+		if err != nil {
+			return
 		}
-		object.ApplyTo(m)
-		list.Append(m)
+		if len(vmList.Items) == 0 {
+			break
+		}
+		for _, object := range vmList.Items {
+			m := &model.VM{
+				Base: model.Base{ID: object.ID},
+			}
+			object.ApplyTo(m)
+			list.Append(m)
+		}
 	}
 
 	itr = list.Iter()
