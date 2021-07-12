@@ -1,7 +1,9 @@
 package ovirt
 
 import (
+	"context"
 	"fmt"
+	"github.com/go-logr/logr"
 	liberr "github.com/konveyor/controller/pkg/error"
 	fb "github.com/konveyor/controller/pkg/filebacked"
 	libcnt "github.com/konveyor/controller/pkg/inventory/container"
@@ -100,16 +102,39 @@ func init() {
 type Updater func(tx *libmodel.Tx) error
 
 //
+// Adapter context.
+type Context struct {
+	// Context.
+	ctx context.Context
+	// oVirt client.
+	client *Client
+	// Log.
+	log logr.Logger
+}
+
+//
+// The context is done.
+func (r *Context) done() (done bool) {
+	select {
+	case <-r.ctx.Done():
+		done = true
+	default:
+	}
+
+	return
+}
+
+//
 // Model adapter.
 // Provides integration between the REST resource
 // model and the inventory model.
 type Adapter interface {
-	// List REST collections.
-	List(client *Client) (itr fb.Iterator, err error)
-	// Apply an event to the inventory model.
-	Apply(event *Event, client *Client) (updater Updater, err error)
 	// List handled event (codes).
 	Event() []int
+	// List REST collections.
+	List(ctx *Context) (itr fb.Iterator, err error)
+	// Apply an event to the inventory model.
+	Apply(ctx *Context, event *Event) (updater Updater, err error)
 }
 
 //
@@ -134,7 +159,8 @@ type DataCenterAdapter struct {
 
 //
 // List the collection.
-func (r *DataCenterAdapter) List(client *Client) (itr fb.Iterator, err error) {
+func (r *DataCenterAdapter) List(ctx *Context) (itr fb.Iterator, err error) {
+	client := ctx.client
 	dataCenterList := DataCenterList{}
 	err = client.list("datacenters", &dataCenterList)
 	if err != nil {
@@ -166,7 +192,8 @@ func (r *DataCenterAdapter) Event() []int {
 
 //
 // Apply events to the inventory model.
-func (r *DataCenterAdapter) Apply(event *Event, client *Client) (updater Updater, err error) {
+func (r *DataCenterAdapter) Apply(ctx *Context, event *Event) (updater Updater, err error) {
+	client := ctx.client
 	switch event.code() {
 	case USER_ADD_STORAGE_POOL:
 		object := &DataCenter{}
@@ -232,7 +259,8 @@ func (r *NetworkAdapter) Event() []int {
 
 //
 // List the collection.
-func (r *NetworkAdapter) List(client *Client) (itr fb.Iterator, err error) {
+func (r *NetworkAdapter) List(ctx *Context) (itr fb.Iterator, err error) {
+	client := ctx.client
 	networkList := NetworkList{}
 	err = client.list("networks", &networkList, r.follow())
 	if err != nil {
@@ -254,9 +282,9 @@ func (r *NetworkAdapter) List(client *Client) (itr fb.Iterator, err error) {
 
 //
 // Apply and event tot the inventory model.
-func (r *NetworkAdapter) Apply(event *Event, client *Client) (updater Updater, err error) {
+func (r *NetworkAdapter) Apply(ctx *Context, event *Event) (updater Updater, err error) {
 	var desired fb.Iterator
-	desired, err = r.List(client)
+	desired, err = r.List(ctx)
 	if err != nil {
 		return
 	}
@@ -317,7 +345,8 @@ func (r *NICProfileAdapter) Event() []int {
 
 //
 // List the collection.
-func (r *NICProfileAdapter) List(client *Client) (itr fb.Iterator, err error) {
+func (r *NICProfileAdapter) List(ctx *Context) (itr fb.Iterator, err error) {
+	client := ctx.client
 	pList := NICProfileList{}
 	err = client.list("vnicprofiles", &pList)
 	if err != nil {
@@ -340,9 +369,9 @@ func (r *NICProfileAdapter) List(client *Client) (itr fb.Iterator, err error) {
 
 //
 // Apply and event tot the inventory model.
-func (r *NICProfileAdapter) Apply(event *Event, client *Client) (updater Updater, err error) {
+func (r *NICProfileAdapter) Apply(ctx *Context, event *Event) (updater Updater, err error) {
 	var desired fb.Iterator
-	desired, err = r.List(client)
+	desired, err = r.List(ctx)
 	if err != nil {
 		return
 	}
@@ -392,7 +421,8 @@ func (r *DiskProfileAdapter) Event() []int {
 
 //
 // List the collection.
-func (r *DiskProfileAdapter) List(client *Client) (itr fb.Iterator, err error) {
+func (r *DiskProfileAdapter) List(ctx *Context) (itr fb.Iterator, err error) {
+	client := ctx.client
 	dList := DiskProfileList{}
 	err = client.list("diskprofiles", &dList)
 	if err != nil {
@@ -414,9 +444,9 @@ func (r *DiskProfileAdapter) List(client *Client) (itr fb.Iterator, err error) {
 
 //
 // Apply and event tot the inventory model.
-func (r *DiskProfileAdapter) Apply(event *Event, client *Client) (updater Updater, err error) {
+func (r *DiskProfileAdapter) Apply(ctx *Context, event *Event) (updater Updater, err error) {
 	var desired fb.Iterator
-	desired, err = r.List(client)
+	desired, err = r.List(ctx)
 	if err != nil {
 		return
 	}
@@ -462,7 +492,8 @@ func (r *StorageDomainAdapter) Event() []int {
 
 //
 // List the collection.
-func (r *StorageDomainAdapter) List(client *Client) (itr fb.Iterator, err error) {
+func (r *StorageDomainAdapter) List(ctx *Context) (itr fb.Iterator, err error) {
+	client := ctx.client
 	sdList := StorageDomainList{}
 	err = client.list("storagedomains", &sdList)
 	if err != nil {
@@ -484,7 +515,7 @@ func (r *StorageDomainAdapter) List(client *Client) (itr fb.Iterator, err error)
 
 //
 // Apply and event tot the inventory model.
-func (r *StorageDomainAdapter) Apply(event *Event, client *Client) (updater Updater, err error) {
+func (r *StorageDomainAdapter) Apply(ctx *Context, event *Event) (updater Updater, err error) {
 	switch event.code() {
 	default:
 		err = liberr.New("unknown event", "event", event)
@@ -510,7 +541,8 @@ func (r *ClusterAdapter) Event() []int {
 
 //
 // List the collection.
-func (r *ClusterAdapter) List(client *Client) (itr fb.Iterator, err error) {
+func (r *ClusterAdapter) List(ctx *Context) (itr fb.Iterator, err error) {
+	client := ctx.client
 	clusterList := ClusterList{}
 	err = client.list("clusters", &clusterList)
 	if err != nil {
@@ -532,7 +564,8 @@ func (r *ClusterAdapter) List(client *Client) (itr fb.Iterator, err error) {
 
 //
 // Apply and event tot the inventory model.
-func (r *ClusterAdapter) Apply(event *Event, client *Client) (updater Updater, err error) {
+func (r *ClusterAdapter) Apply(ctx *Context, event *Event) (updater Updater, err error) {
+	client := ctx.client
 	switch event.code() {
 	case USER_ADD_CLUSTER:
 		object := &Cluster{}
@@ -598,7 +631,8 @@ func (r *HostAdapter) Event() []int {
 
 //
 // List the collection.
-func (r *HostAdapter) List(client *Client) (itr fb.Iterator, err error) {
+func (r *HostAdapter) List(ctx *Context) (itr fb.Iterator, err error) {
+	client := ctx.client
 	hostList := HostList{}
 	err = client.list("hosts", &hostList, r.follow())
 	if err != nil {
@@ -620,7 +654,8 @@ func (r *HostAdapter) List(client *Client) (itr fb.Iterator, err error) {
 
 //
 // Apply and event tot the inventory model.
-func (r *HostAdapter) Apply(event *Event, client *Client) (updater Updater, err error) {
+func (r *HostAdapter) Apply(ctx *Context, event *Event) (updater Updater, err error) {
+	client := ctx.client
 	switch event.code() {
 	case USER_ADD_HOST:
 		object := &Host{}
@@ -718,14 +753,18 @@ func (r *VMAdapter) Event() []int {
 
 //
 // List the collection.
-func (r *VMAdapter) List(client *Client) (itr fb.Iterator, err error) {
+func (r *VMAdapter) List(ctx *Context) (itr fb.Iterator, err error) {
+	client := ctx.client
 	vmList := VMList{}
 	list := fb.NewList()
 	page := 0
 	for {
 		page++
+		if ctx.done() {
+			return
+		}
 		params := append(
-			paginate(page, 500),
+			paginate(page, 100),
 			r.follow())
 		err = client.list("vms", &vmList, params...)
 		if err != nil {
@@ -734,6 +773,10 @@ func (r *VMAdapter) List(client *Client) (itr fb.Iterator, err error) {
 		if len(vmList.Items) == 0 {
 			break
 		}
+		ctx.log.V(1).Info(
+			"List VM.",
+			"page",
+			page)
 		for _, object := range vmList.Items {
 			m := &model.VM{
 				Base: model.Base{ID: object.ID},
@@ -750,7 +793,8 @@ func (r *VMAdapter) List(client *Client) (itr fb.Iterator, err error) {
 
 //
 // Apply and event tot the inventory model.
-func (r *VMAdapter) Apply(event *Event, client *Client) (updater Updater, err error) {
+func (r *VMAdapter) Apply(ctx *Context, event *Event) (updater Updater, err error) {
+	client := ctx.client
 	switch event.code() {
 	case USER_ADD_VM:
 		object := &VM{}
@@ -810,7 +854,7 @@ func (r *VMAdapter) Apply(event *Event, client *Client) (updater Updater, err er
 		}
 	case USER_FINISHED_REMOVE_DISK_ATTACHED_TO_VMS:
 		var desired fb.Iterator
-		desired, err = r.List(client)
+		desired, err = r.List(ctx)
 		if err != nil {
 			return
 		}
@@ -872,7 +916,8 @@ func (r *DiskAdapter) Event() []int {
 
 //
 // List the collection.
-func (r *DiskAdapter) List(client *Client) (itr fb.Iterator, err error) {
+func (r *DiskAdapter) List(ctx *Context) (itr fb.Iterator, err error) {
+	client := ctx.client
 	diskList := DiskList{}
 	err = client.list("disks", &diskList)
 	if err != nil {
@@ -894,9 +939,9 @@ func (r *DiskAdapter) List(client *Client) (itr fb.Iterator, err error) {
 
 //
 // Apply and event tot the inventory model.
-func (r *DiskAdapter) Apply(event *Event, client *Client) (updater Updater, err error) {
+func (r *DiskAdapter) Apply(ctx *Context, event *Event) (updater Updater, err error) {
 	var desired fb.Iterator
-	desired, err = r.List(client)
+	desired, err = r.List(ctx)
 	if err != nil {
 		return
 	}

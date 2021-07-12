@@ -125,8 +125,11 @@ func (r *Reconciler) Test() (err error) {
 //
 // Start the reconciler.
 func (r *Reconciler) Start() error {
-	ctx := context.Background()
-	ctx, r.cancel = context.WithCancel(ctx)
+	ctx := Context{
+		client: r.client,
+		log: r.log,
+	}
+	ctx.ctx, r.cancel = context.WithCancel(context.Background())
 	watchList := []*libmodel.Watch{}
 	start := func() {
 		defer func() {
@@ -136,54 +139,52 @@ func (r *Reconciler) Start() error {
 		}()
 	try:
 		for {
-			select {
-			case <-ctx.Done():
+			if ctx.done() {
 				break try
+			}
+			var err error
+			r.log.V(3).Info(
+				"Running.",
+				"phase",
+				r.phase)
+			switch r.phase {
+			case Started:
+				err = r.noteLastEvent()
+				if err == nil {
+					r.phase = Load
+				}
+			case Load:
+				err = r.load(&ctx)
+				if err == nil {
+					r.phase = Loaded
+				}
+			case Loaded:
+				err := r.refresh(&ctx)
+				if err == nil {
+					r.phase = Parity
+				}
+			case Parity:
+				watchList = r.watch()
+				r.phase = Refresh
+				r.parity = true
+			case Refresh:
+				err := r.refresh(&ctx)
+				if err == nil {
+					r.parity = true
+					time.Sleep(RefreshInterval)
+				} else {
+					r.parity = false
+				}
 			default:
-				var err error
-				r.log.V(3).Info(
-					"Running.",
+				err = liberr.New("Phase unknown.")
+			}
+			if err != nil {
+				r.log.Error(
+					err,
+					"Failed.",
 					"phase",
 					r.phase)
-				switch r.phase {
-				case Started:
-					err = r.noteLastEvent()
-					if err == nil {
-						r.phase = Load
-					}
-				case Load:
-					err = r.load()
-					if err == nil {
-						r.phase = Loaded
-					}
-				case Loaded:
-					err := r.refresh()
-					if err == nil {
-						r.phase = Parity
-					}
-				case Parity:
-					watchList = r.watch()
-					r.phase = Refresh
-					r.parity = true
-				case Refresh:
-					err := r.refresh()
-					if err == nil {
-						r.parity = true
-						time.Sleep(RefreshInterval)
-					} else {
-						r.parity = false
-					}
-				default:
-					err = liberr.New("Phase unknown.")
-				}
-				if err != nil {
-					r.log.Error(
-						err,
-						"Failed.",
-						"phase",
-						r.phase)
-					time.Sleep(RetryInterval)
-				}
+				time.Sleep(RetryInterval)
 			}
 		}
 	}
@@ -234,7 +235,7 @@ func (r *Reconciler) noteLastEvent() (err error) {
 
 //
 // Load the inventory.
-func (r *Reconciler) load() (err error) {
+func (r *Reconciler) load(ctx *Context) (err error) {
 	err = r.connect()
 	if err != nil {
 		return
@@ -250,7 +251,7 @@ func (r *Reconciler) load() (err error) {
 	mark := time.Now()
 
 	for _, adapter := range adapterList {
-		itr, aErr := adapter.List(r.client)
+		itr, aErr := adapter.List(ctx)
 		if aErr != nil {
 			err = aErr
 			return
@@ -370,7 +371,7 @@ func (r *Reconciler) watch() (list []*libmodel.Watch) {
 // The two-phased approach ensures we do not hold the
 // DB transaction while using the provider API which
 // can block or be slow.
-func (r *Reconciler) refresh() (err error) {
+func (r *Reconciler) refresh(ctx *Context) (err error) {
 	err = r.connect()
 	if err != nil {
 		return
@@ -385,7 +386,7 @@ func (r *Reconciler) refresh() (err error) {
 			"event",
 			event)
 		var changeSet []Updater
-		changeSet, err = r.changeSet(event)
+		changeSet, err = r.changeSet(ctx, event)
 		if err == nil {
 			err = r.apply(changeSet)
 		}
@@ -409,9 +410,9 @@ func (r *Reconciler) refresh() (err error) {
 
 //
 // Build the changeSet.
-func (r *Reconciler) changeSet(event *Event) (list []Updater, err error) {
+func (r *Reconciler) changeSet(ctx *Context, event *Event) (list []Updater, err error) {
 	for _, adapter := range adapterMap[event.code()] {
-		u, aErr := adapter.Apply(event, r.client)
+		u, aErr := adapter.Apply(ctx, event)
 		if aErr != nil {
 			err = aErr
 			return
