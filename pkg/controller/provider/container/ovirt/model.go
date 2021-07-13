@@ -113,8 +113,8 @@ type Context struct {
 }
 
 //
-// The context is done.
-func (r *Context) done() (done bool) {
+// The adapter request is canceled.
+func (r *Context) canceled() (done bool) {
 	select {
 	case <-r.ctx.Done():
 		done = true
@@ -129,17 +129,22 @@ func (r *Context) done() (done bool) {
 // Provides integration between the REST resource
 // model and the inventory model.
 type Adapter interface {
-	// List handled event (codes).
-	Event() []int
 	// List REST collections.
 	List(ctx *Context) (itr fb.Iterator, err error)
 	// Apply an event to the inventory model.
 	Apply(ctx *Context, event *Event) (updater Updater, err error)
+	// List handled event (codes).
+	Event() []int
 }
 
 //
-// Build pagination parameter.
-func paginate(page, max int) []libweb.Param {
+// Base adapter.
+type BaseAdapter struct {
+}
+
+//
+// Build page parameter.
+func (r *BaseAdapter) page(page, max int) []libweb.Param {
 	return []libweb.Param{
 		{
 			Key:   "search",
@@ -153,8 +158,18 @@ func paginate(page, max int) []libweb.Param {
 }
 
 //
+// Build follow parameter.
+func (r *BaseAdapter) follow(property ...string) libweb.Param {
+	return libweb.Param{
+		Key:   "follow",
+		Value: strings.Join(property, ","),
+	}
+}
+
+//
 // DataCenter.
 type DataCenterAdapter struct {
+	BaseAdapter
 }
 
 //
@@ -245,6 +260,7 @@ func (r *DataCenterAdapter) Apply(ctx *Context, event *Event) (updater Updater, 
 //
 // Network adapter.
 type NetworkAdapter struct {
+	BaseAdapter
 }
 
 //
@@ -318,19 +334,14 @@ func (r *NetworkAdapter) Apply(ctx *Context, event *Event) (updater Updater, err
 }
 
 func (r *NetworkAdapter) follow() libweb.Param {
-	return libweb.Param{
-		Key: "follow",
-		Value: strings.Join(
-			[]string{
-				"vnic_profiles",
-			},
-			","),
-	}
+	return r.BaseAdapter.follow(
+		"vnic_profiles")
 }
 
 //
 // NICProfileAdapter adapter.
 type NICProfileAdapter struct {
+	BaseAdapter
 }
 
 //
@@ -407,6 +418,7 @@ func (r *NICProfileAdapter) Apply(ctx *Context, event *Event) (updater Updater, 
 //
 // DiskProfile adapter.
 type DiskProfileAdapter struct {
+	BaseAdapter
 }
 
 //
@@ -482,6 +494,7 @@ func (r *DiskProfileAdapter) Apply(ctx *Context, event *Event) (updater Updater,
 //
 // StorageDomain adapter.
 type StorageDomainAdapter struct {
+	BaseAdapter
 }
 
 //
@@ -527,6 +540,7 @@ func (r *StorageDomainAdapter) Apply(ctx *Context, event *Event) (updater Update
 //
 // Cluster adapter.
 type ClusterAdapter struct {
+	BaseAdapter
 }
 
 //
@@ -617,6 +631,7 @@ func (r *ClusterAdapter) Apply(ctx *Context, event *Event) (updater Updater, err
 //
 // Host adapter.
 type HostAdapter struct {
+	BaseAdapter
 }
 
 //
@@ -705,20 +720,16 @@ func (r *HostAdapter) Apply(ctx *Context, event *Event) (updater Updater, err er
 }
 
 func (r *HostAdapter) follow() libweb.Param {
-	return libweb.Param{
-		Key: "follow",
-		Value: strings.Join(
-			[]string{
-				"network_attachments",
-				"nics",
-			},
-			","),
-	}
+	return r.BaseAdapter.follow(
+		"network_attachments",
+		"nics",
+	)
 }
 
 //
 // VM adapter.
 type VMAdapter struct {
+	BaseAdapter
 }
 
 //
@@ -755,16 +766,16 @@ func (r *VMAdapter) Event() []int {
 // List the collection.
 func (r *VMAdapter) List(ctx *Context) (itr fb.Iterator, err error) {
 	client := ctx.client
-	vmList := VMList{}
 	list := fb.NewList()
 	page := 0
 	for {
 		page++
-		if ctx.done() {
+		if ctx.canceled() {
 			return
 		}
+		vmList := VMList{}
 		params := append(
-			paginate(page, 100),
+			r.page(page, 100),
 			r.follow())
 		err = client.list("vms", &vmList, params...)
 		if err != nil {
@@ -882,24 +893,20 @@ func (r *VMAdapter) Apply(ctx *Context, event *Event) (updater Updater, err erro
 }
 
 func (r *VMAdapter) follow() libweb.Param {
-	return libweb.Param{
-		Key: "follow",
-		Value: strings.Join(
-			[]string{
-				"disk_attachments",
-				"host_devices",
-				"snapshots",
-				"watchdogs",
-				"cdroms",
-				"nics",
-			},
-			","),
-	}
+	return r.BaseAdapter.follow(
+		"disk_attachments",
+		"host_devices",
+		"snapshots",
+		"watchdogs",
+		"cdroms",
+		"nics",
+	)
 }
 
 //
 // Disk adapter.
 type DiskAdapter struct {
+	BaseAdapter
 }
 
 //

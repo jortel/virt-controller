@@ -127,7 +127,7 @@ func (r *Reconciler) Test() (err error) {
 func (r *Reconciler) Start() error {
 	ctx := Context{
 		client: r.client,
-		log: r.log,
+		log:    r.log,
 	}
 	ctx.ctx, r.cancel = context.WithCancel(context.Background())
 	watchList := []*libmodel.Watch{}
@@ -139,7 +139,7 @@ func (r *Reconciler) Start() error {
 		}()
 	try:
 		for {
-			if ctx.done() {
+			if ctx.canceled() {
 				break try
 			}
 			var err error
